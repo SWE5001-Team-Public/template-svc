@@ -28,6 +28,7 @@ else
 fi
 
 echo "Cleaning up unused Docker resources..."
-docker system prune -af
+docker image prune -af --filter "label=project=queuetopia-template-svc"
+docker volume rm queuetopia_template_postgres_data
 
 echo "✅ PostgreSQL container and image removed!"

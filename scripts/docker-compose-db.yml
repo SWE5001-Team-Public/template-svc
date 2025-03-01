@@ -1,5 +1,5 @@
 services:
-  postgres:
+  template-svc-postgres:
     container_name: template-svc-db
     image: postgres:15
     restart: always
@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: template_svc_db
     ports:
-      - "5532:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
