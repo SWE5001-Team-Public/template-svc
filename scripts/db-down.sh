@@ -3,15 +3,20 @@ set -e
 
 DB_CONTAINER="template-svc-db"
 DB_IMAGE="queuetopia-template-svc-db"
-
-# Default compose file
 COMPOSE_FILE="scripts/docker-compose-db.yml"
+VOLUME_NAME="queuetopia_template_postgres_data"
 
 echo "Stopping and removing the PostgreSQL container..."
-docker-compose -f "$COMPOSE_FILE" down -v
+if command -v docker-compose &> /dev/null; then
+    docker-compose -f "$COMPOSE_FILE" down -v
+else
+    docker compose -f "$COMPOSE_FILE" down -v
+fi
 
-# Remove the database container if it still exists
-if docker ps -a --format '{{.Names}}' | grep -q "^$DB_CONTAINER$"; then
+# Stop and remove the database container if it exists
+FOUND_CONTAINER=$(docker ps -a --format '{{.Names}}' | grep "^$DB_CONTAINER$" || true)
+
+if [[ -n "$FOUND_CONTAINER" ]]; then
     docker stop "$DB_CONTAINER"
     docker rm "$DB_CONTAINER"
     echo "✅ Removed container: $DB_CONTAINER"
@@ -20,7 +25,7 @@ else
 fi
 
 # Remove the PostgreSQL image if it exists
-if docker images -q "$DB_IMAGE" > /dev/null; then
+if [[ -n $(docker images -q "$DB_IMAGE") ]]; then
     docker rmi -f "$DB_IMAGE"
     echo "✅ Removed image: $DB_IMAGE"
 else
@@ -28,7 +33,17 @@ else
 fi
 
 echo "Cleaning up unused Docker resources..."
-docker image prune -af --filter "label=project=queuetopia-template-svc"
-docker volume rm queuetopia_template_postgres_data
+docker image prune -af --filter "label=project=queuetopia-template-svc" || echo "No unused images to remove."
 
-echo "✅ PostgreSQL container and image removed!"
+# Ensure Buildx images are also cleaned up (for multi-arch support)
+docker buildx prune -af || echo "No Buildx cache to clear."
+
+# Remove the volume only if it exists
+if docker volume inspect "$VOLUME_NAME" > /dev/null 2>&1; then
+    docker volume rm "$VOLUME_NAME"
+    echo "✅ Removed volume: $VOLUME_NAME"
+else
+    echo "⚠️ Volume $VOLUME_NAME not found or already removed."
+fi
+
+echo "✅ PostgreSQL container, image, and volume removed!"
